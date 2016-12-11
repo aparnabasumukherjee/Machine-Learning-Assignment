@@ -1,0 +1,105 @@
+---
+title: "fitbitdata_analysis"
+author: "Aparna"
+date: "December 11, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.The goal  is to predict the manner in which they did the exercise. This is the "classe" variable in the training set
+
+#Reading the dataset
+```{r }
+urltrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+urltest <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(urltrain, destfile = "D:/OLD DATA/d/R learning/machineL/training.csv")
+download.file(urltest, destfile = "D:/OLD DATA/d/R learning/machineL/testing.csv")
+# Using the commands:
+training = read.csv("D:/OLD DATA/d/R learning/machineL/training.csv")
+testing <- read.csv("D:/OLD DATA/d/R learning/machineL/testing.csv")
+
+```
+#Understanding the dataset
+```{r }
+dim(training)
+str(training)
+levels(training$classe)
+
+```
+##Load all libraries
+```{r }
+library(caret)
+library(kernlab)
+library(ISLR)
+library(Hmisc)
+library(rpart) 
+library(rpart.plot)
+library(AppliedPredictiveModeling)
+library(e1071)
+library(randomForest)
+library(gbm)
+```
+
+#Cleaning the data for variables without variance and removing variables with more than 60% NAs
+```{r }
+nzv <- nearZeroVar(training)
+training <- training[, -nzv]
+dim(training)
+
+training_1 <- training 
+for(i in 1:length(training)) 
+        if( sum( is.na( training[, i] ) ) /nrow(training) >= .6 ) 
+        for(j in 1:length(training_1)) 
+            if( length( grep(names(training[i]), names(training_1)[j]) ) ==1)  
+                training_1 <- training_1[ , -j] 
+
+dim(training_1)
+training <- training_1
+```
+#Variables related with data acquisition (like: id, timestamps, individuals' names, etc.) are not suitable to be used in prediction and are removed
+
+```{r }
+training <- training[, -(1:6)]
+training$classe = factor(training$classe)
+```
+#Within training, create a training and testing dataset for building the model and validating it
+```{r }
+inTrain = createDataPartition(training$classe, p = 3/4)[[1]]
+train = training[ inTrain,]
+test = training[-inTrain,]
+```
+#Train 2 different models and check the accuracy on out of sample dataset
+```{r }
+tc <- trainControl(method = "cv", number = 7, verboseIter=FALSE , preProcOptions="pca", allowParallel=TRUE)
+mod1 <- train(classe ~ ., data=train, method="rf", trControl= tc)
+mod2<- train(classe ~ ., data=train, method ="svmRadial", trControl= tc)
+
+pred1 <- predict(mod1, test)
+pred2 <- predict(mod2, test)
+
+confusionMatrix(pred1, test$classe)
+confusionMatrix(pred2, test$classe)
+```
+## Random Forest gives a better model.
+```{r }
+mod1
+varImp(mod1)
+```
+# Including Plots
+```{r , echo=FALSE}
+plot(mod1)
+```
+#Predicting Results on the Test Data using Random Forest since that had higher accuracy
+```{r }
+rfPredictions <- predict(mod1, newdata = testing)
+rfPredictions
+```
+
+
+
+
+
+
